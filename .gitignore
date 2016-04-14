@@ -1,0 +1,4 @@
+*.swp
+*.swo
+build
+src/examples.libbson_config.h
