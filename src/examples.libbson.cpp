@@ -2,7 +2,9 @@
 #include <iterator>
 #include <memory>
 #include <cstring>
+#include <functional>
 #include <bson.h>
+#include <vector>
 
 class Data
 {
@@ -15,15 +17,40 @@ public:
     bool to_bson(OutIter out) const;
 };
 
+
+struct S {
+    S(int N, uint64_t flow, uint64_t max) : N(N), flow(flow), max(max) {}
+    int N;
+    uint64_t flow;
+    uint64_t max;
+};
+
 template<class OutIter> bool
 Data::to_bson(OutIter out) const
 {
     std::unique_ptr<bson_t, std::function<void(bson_t*)> >
-        bson{bson_new(), bson_destroy};
+        bson{bson_new(), bson_destroy}, child{bson_new(), bson_destroy};
+
+    std::vector<S> v;
+    v.emplace_back(1, 2, 3);
+    v.emplace_back(4, 5, 6);
 
     if (!BSON_APPEND_INT64(bson.get(), "num64", number64)) return false;
     if (!BSON_APPEND_INT32(bson.get(), "num32", number32)) return false;
     if (!BSON_APPEND_UTF8 (bson.get(), "str"  , str.c_str())) return false;
+
+    bson_append_array_begin(bson.get(), "vec", 3, child.get());
+    for (const auto& i : v)
+    {
+        BCON_APPEND(child.get(),
+        "tmp", // this will be skipped
+         "{",
+         "flow", BCON_INT64(i.flow),
+         "max", BCON_INT64(i.max),
+         "}"
+         );
+    }
+    bson_append_array_end(bson.get(), child.get());
     const uint8_t* begin = bson_get_data(bson.get());
     const uint8_t* end = begin + bson->len;
     std::copy(begin, end, out);
